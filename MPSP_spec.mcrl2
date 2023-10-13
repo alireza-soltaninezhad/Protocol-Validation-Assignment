@@ -1,0 +1,164 @@
+sort BUTTON = struct b_up | b_down | b_stop | b_reset | b_resume | b_undock;
+
+% All possible horizontal positions
+
+sort HP = struct h_nonRightmost | h_rightmost; 
+
+% All posible vertical positions
+% the v_low means any height between lowermost and standard
+% the v_high means any height between highmost and standard
+% the purpose of having 5 different position is that device can stay in any height in between and it is fuzzy range full of numbers. and we need lowest and highest for the requirement.
+
+sort VP = struct v_lowest | v_low | v_standard | v_high | v_highest; 
+
+% Horizontal Movement Directions
+
+sort HMD = struct inwards | outwards;
+
+% Vertical Movement Directions
+
+sort VMD = struct up | down;
+
+act
+
+  % s_ represents send action and r_ represents recieve
+
+  % sensor detection
+
+  s_detect_horizontal, r_detect_horizontal, detect_horizontal: HP;
+  s_detect_vertical, r_detect_vertical, detect_vertical: VP;
+
+  s_detect_dock, r_detect_dock, detect_dock;
+  s_detect_undock, r_detect_undock, detect_undock;
+
+  % movement
+
+  s_move_horizontal, r_move_horizontal, move_horizontal: HMD;
+  s_move_vertical, r_move_vertical, move_vertical: VMD;
+
+  s_move_vertical_stop, s_move_horizontal_stop;
+  r_move_vertical_stop, r_move_horizontal_stop;
+  move_vertical_stop, move_horizontal_stop;
+
+  % buttons
+
+  press_button, release_button: BUTTON;
+
+  % brake and release brake
+
+  s_b_horizontal, r_b_horizontal, brake_horizontal;
+  s_rb_horizontal, r_rb_horizontal, releaseBrake_horizontal;
+  s_b_vertical, r_b_vertical, brake_vertical;
+  s_rb_vertical, r_rb_vertical, releaseBrake_vertical;
+
+  % undock and calibrate and emergency
+
+  s_undock, r_undock, undock;
+  calibrate, uncalibrate;
+  emergency, normal;
+
+
+proc
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%  Movement and stop actions  %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+  VerticalMove(direction: VMD) = (direction == up) -> press_button(b_up).VerticalMovingProcess(v_highest, b_up, up) <> press_button(b_down).VerticalMovingProcess(v_lowest, b_down, down);
+
+  VerticalMovingProcess(dest_position: VP, button: BUTTON, direction: VMD) = sum p:VP.(p != dest_position) -> r_detect_vertical(p).r_move_vertical(direction).r_rb_vertical.(AutoStopVerticalMove(dest_position, button, direction) + OperatorStopVerticalMove(button)) <> r_detect_vertical(p).release_button(button);
+
+  OperatorStopVerticalMove(button: BUTTON) = release_button(button).r_b_vertical.r_move_vertical_stop;
+
+  AutoStopVerticalMove(dest_position: VP, button: BUTTON, direction: VMD) = sum p:VP.(p == dest_position) -> r_detect_vertical(dest_position).r_b_vertical.r_move_vertical_stop.release_button(button) <> r_detect_vertical(p).(AutoStopVerticalMove(dest_position, button, direction) + OperatorStopVerticalMove(button)) + r_detect_vertical(dest_position).r_b_vertical.r_move_vertical_stop.release_button(button);
+
+
+  HorizontalMovingProcess(dest_position: HP, button: BUTTON, direction: HMD) = sum p:HP.(p != dest_position) -> r_detect_horizontal(p).r_move_horizontal(direction).r_rb_horizontal.(AutoStopHorizontalMove(dest_position, button, direction) + OperatorStopHorizontalMove(button)) <> r_detect_horizontal(p).release_button(button);
+
+  OperatorStopHorizontalMove(button: BUTTON) = release_button(button).r_b_horizontal.r_move_horizontal_stop;
+
+  AutoStopHorizontalMove(dest_position: HP, button: BUTTON, direction: HMD) = sum p:HP.(p == dest_position) -> r_detect_horizontal(dest_position).r_b_horizontal.r_move_horizontal_stop.release_button(button) <> r_detect_horizontal(p).(AutoStopHorizontalMove(dest_position, button, direction) + OperatorStopHorizontalMove(button)) + r_detect_horizontal(dest_position).r_b_horizontal.r_move_horizontal_stop.release_button(button);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%  All possible actions  %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+  % the initial state = Uncal_Undock
+
+  % When Calibrated and undocked, can be undocked or Uncalibrated next
+
+  Cal_Undock = (r_detect_dock.sum p: VP.(p == v_highest || p == v_high) -> r_detect_vertical(p).r_undock.Cal_Undock <> r_detect_vertical(p).Cal_Dock) + (VerticalMove(up) + VerticalMove(down)).Cal_Undock + Uncalibrate;
+
+  % when uncalibrated and docked, Only can be calibrated and docked next
+
+  Uncal_Dock = (VerticalMove(up) + VerticalMove(down)).Uncal_Dock + press_button(b_reset).release_button(b_reset).calibrate.Cal_Dock;
+
+
+  % Can be undocked or move it to make it to mostright to be uncalibrated or press stop to go to emergency mode
+
+  Cal_Dock = Undock + MoveWhenDocked.Cal_Dock + Emergency;
+
+  MoveWhenDocked = press_button(b_up).sum p: VP.(p == v_standard) -> r_detect_vertical(v_standard).HorizontalMovingProcess(h_nonRightmost, b_up, inwards) <> ((p == v_low || p == v_lowest)-> r_detect_vertical(p).VerticalMovingProcess(v_standard, b_up, up) <> r_detect_vertical(p).release_button(b_up))
+  +
+  press_button(b_down).sum p: VP.(p == v_standard) -> 
+  r_detect_vertical(v_standard).(sum hp: HP. (hp != h_rightmost) -> HorizontalMovingProcess(h_rightmost, b_down, outwards) <> r_detect_horizontal(h_rightmost).VerticalMovingProcess(v_lowest, b_down, down)) <> ((p == v_highest || p == v_high)-> r_detect_vertical(p).VerticalMovingProcess(v_standard, b_down, down) <> r_detect_vertical(p).release_button(b_down));
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%  Calibration-Emergency-Undock actions  %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+  Emergency = press_button(b_stop).release_button(b_stop).emergency.r_rb_horizontal.press_button(b_resume).release_button(b_resume).normal.r_b_horizontal.Cal_Dock;
+
+  Undock = press_button(b_undock).release_button(b_undock).sum p:HP.(p == h_rightmost) -> r_detect_horizontal(h_rightmost).r_undock.Cal_Undock <> r_detect_horizontal(p).Cal_Dock;
+
+  Uncalibrate = press_button(b_reset).release_button(b_reset).uncalibrate.Uncal_Undock;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%  Communication actions  %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+  % when uncalibrated and undocked, if the height is at standard or bellow, it can be docked otherwise it must be moved to standard height
+
+  Uncal_Undock = (VerticalMove(up) + VerticalMove(down)).Uncal_Undock + (r_detect_dock.sum p: VP.(p == v_highest || p == v_high) -> r_detect_vertical(p).r_undock.Uncal_Undock <> r_detect_vertical(p).Uncal_Dock);
+
+  Sensing = ((sum h:HP.s_detect_horizontal(h)) + (sum v:VP.s_detect_vertical(v)) + s_detect_dock + s_detect_undock).Sensing;
+  
+  VerticalMovement = (sum d:VMD. s_move_vertical(d)).s_move_vertical_stop.VerticalMovement;
+  HorizontalMovement = (sum d:HMD. s_move_horizontal(d)).s_move_horizontal_stop.HorizontalMovement;
+
+  UnD = s_undock.UnD;
+
+  VerticalBrake = s_rb_vertical.s_b_vertical.VerticalBrake;
+  HorizontalBrake = s_rb_horizontal.s_b_horizontal.HorizontalBrake;
+
+
+init 
+  allow({
+    move_horizontal,
+    move_vertical,
+    detect_horizontal,
+    detect_vertical,
+    detect_dock, detect_undock,
+    move_vertical_stop, move_horizontal_stop,
+    brake_vertical, releaseBrake_vertical, brake_horizontal, releaseBrake_horizontal,
+    undock,
+    press_button, release_button,
+    calibrate, uncalibrate,
+    emergency, normal
+  },
+  comm({
+    s_detect_horizontal | r_detect_horizontal->detect_horizontal,
+    s_detect_vertical | r_detect_vertical->detect_vertical,
+    s_move_horizontal | r_move_horizontal->move_horizontal,
+    s_move_vertical | r_move_vertical->move_vertical,
+    s_detect_dock | r_detect_dock->detect_dock,
+    s_detect_undock | r_detect_undock->detect_undock,
+    s_move_vertical_stop | r_move_vertical_stop->move_vertical_stop,
+    s_move_horizontal_stop | r_move_horizontal_stop->move_horizontal_stop,
+    s_b_vertical | r_b_vertical->brake_vertical,
+    s_rb_vertical | r_rb_vertical -> releaseBrake_vertical,
+    s_b_horizontal | r_b_horizontal-> brake_horizontal,
+    s_rb_horizontal | r_rb_horizontal -> releaseBrake_horizontal,
+    s_undock | r_undock -> undock
+   },
+    Uncal_Undock || VerticalBrake || HorizontalBrake || VerticalMovement || HorizontalMovement || Sensing || UnD));

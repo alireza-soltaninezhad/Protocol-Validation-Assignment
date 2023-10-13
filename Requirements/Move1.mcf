@@ -1,0 +1,1 @@
+[(!detect_dock)*.(detect_dock.(!undock)*.undock.(!detect_dock)*)*.move_horizontal(inwards)] false && [(!detect_dock)*.(detect_dock.(!undock)*.undock.(!detect_dock)*)*.move_horizontal(outwards)] false

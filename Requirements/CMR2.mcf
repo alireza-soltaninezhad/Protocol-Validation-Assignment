@@ -1,0 +1,1 @@
+[true*.press_button(b_up).detect_vertical(v_standard)]<(!detect_horizontal(h_nonRightmost))*.move_horizontal(inwards)> true

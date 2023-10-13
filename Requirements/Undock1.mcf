@@ -1,0 +1,2 @@
+[(!detect_dock)*.(detect_dock.(!undock)*.undock.(!detect_dock)*)*.(detect_horizontal(h_nonRightmost))] false
+

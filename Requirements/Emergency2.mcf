@@ -1,0 +1,1 @@
+[true*.release_button(b_resume)]<(!emergency)*.normal> true

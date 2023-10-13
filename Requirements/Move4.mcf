@@ -1,0 +1,2 @@
+[true*.(move_horizontal(inwards) || move_horizontal(outwards)).(!move_horizontal_stop)*.(move_horizontal(inwards) || move_horizontal(outwards))] false &&
+[true*.(move_vertical(up) || move_vertical(down)).(!move_vertical_stop)*.(move_vertical(up) || move_vertical(down))] false

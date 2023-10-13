@@ -1,0 +1,1 @@
+[true*.press_button(b_up).(detect_vertical(v_lowest) || detect_vertical(v_low))]<(!detect_vertical(v_standard))*.move_vertical(up)> true

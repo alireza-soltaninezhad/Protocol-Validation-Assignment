@@ -1,0 +1,1 @@
+forall d: HMD.[true*.emergency.(!normal)*.(move_horizontal(d))] false

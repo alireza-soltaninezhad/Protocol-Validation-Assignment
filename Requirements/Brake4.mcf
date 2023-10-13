@@ -1,0 +1,1 @@
+[true*.move_vertical_stop.brake_vertical.(!move_vertical(up) && !move_vertical(down))*.releaseBrake_vertical] false

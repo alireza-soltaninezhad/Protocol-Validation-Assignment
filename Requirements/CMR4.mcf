@@ -1,0 +1,1 @@
+[true*.calibrate.(!undock)*.detect_vertical(v_standard).move_vertical(up)] false

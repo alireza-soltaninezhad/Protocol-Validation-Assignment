@@ -1,0 +1,2 @@
+forall b1, b2: BUTTON.[press_button(b1).(!release_button(b1))*.press_button(b2)] false &&
+forall b3, b4: BUTTON.[release_button(b3).(!press_button(b3))*.release_button(b4)] false

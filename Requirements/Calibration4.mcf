@@ -1,0 +1,1 @@
+[true*.detect_dock.(!undock)*.uncalibrate] false

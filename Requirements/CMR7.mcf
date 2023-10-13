@@ -1,0 +1,1 @@
+[true*.detect_dock.(detect_vertical(v_highest) || detect_vertical(v_high)).!undock] false
